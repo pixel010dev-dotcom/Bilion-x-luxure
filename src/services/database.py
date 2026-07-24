@@ -141,13 +141,13 @@ def update_payment_status(payment_id: str, status: str):
             plan = row["plan"]
             user_id = row["user_id"]
             coins = row["coins_delivered"]
-            add_coins(user_id, coins)
-            log_financial(
-                type="venda",
-                description=f"Plano {plan} - User {user_id}",
-                amount_gross=row["amount_gross"],
-                amount_net=row["amount_net"],
-                mp_fee=row["mp_fee"],
+            # Tudo na mesma conexão pra evitar lock
+            conn.execute("UPDATE users SET coins = coins + ? WHERE user_id = ?", (coins, user_id))
+            mp_fee = row["mp_fee"]
+            profit = round(row["amount_net"], 2)
+            conn.execute(
+                "INSERT INTO financial_log (type, description, amount_gross, amount_net, mp_fee, profit) VALUES (?, ?, ?, ?, ?, ?)",
+                ("venda", f"Plano {plan} - User {user_id}", row["amount_gross"], row["amount_net"], mp_fee, profit),
             )
         conn.commit()
     conn.close()
