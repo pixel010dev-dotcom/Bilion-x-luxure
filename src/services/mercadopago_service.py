@@ -2,7 +2,6 @@
 import os
 import logging
 import mercadopago
-import uuid
 
 logger = logging.getLogger(__name__)
 
@@ -72,20 +71,19 @@ def create_pix_payment(user_id: int, plan: str) -> dict:
         return {"error": "Plano inválido"}
 
     sdk = get_sdk()
-    idempotency_key = str(uuid.uuid4())
 
     payment_data = {
         "transaction_amount": plan_data["price"],
         "description": f"Bilion Luxure - {plan_data['label']}",
         "payment_method_id": "pix",
         "payer": {
-            "email": f"user{user_id}@telegram.bilionluxure",
+            "email": f"user{user_id}@example.com",
         },
         "external_reference": f"bilion_{user_id}_{plan}",
     }
 
     try:
-        result = sdk.payment().create(payment_data, idempotency_key)
+        result = sdk.payment().create(payment_data)
         payment = result.get("response", {})
 
         if payment.get("id"):
@@ -97,6 +95,9 @@ def create_pix_payment(user_id: int, plan: str) -> dict:
                 "qr_code": payment.get("point_of_interaction", {})
                     .get("transaction_data", {})
                     .get("qr_code_base64", ""),
+                "qr_code_text": payment.get("point_of_interaction", {})
+                    .get("transaction_data", {})
+                    .get("qr_code", ""),
                 "qr_code_link": payment.get("point_of_interaction", {})
                     .get("transaction_data", {})
                     .get("ticket_url", ""),

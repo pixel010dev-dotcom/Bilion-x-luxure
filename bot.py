@@ -15,13 +15,12 @@ from telegram.ext import (
     ApplicationBuilder,
     CommandHandler,
     CallbackQueryHandler,
+    MessageHandler,
+    filters,
 )
 from src.services.database import init_db
-from src.handlers.start import start_handler, menu_callback
-from src.handlers.img import img_handler
-from src.handlers.video import video_handler
-from src.handlers.payment import buy_handler, buy_callback, check_payment_callback
-from src.handlers.balance import balance_handler
+from src.handlers.start import start_handler, menu_callback, accept_tos_callback, handle_text_message
+from src.handlers.payment import buy_callback, check_payment_callback
 from src.handlers.finance import financial_handler
 
 
@@ -43,14 +42,18 @@ def main():
 
     # Commands
     app.add_handler(CommandHandler("start", start_handler))
-    app.add_handler(CommandHandler("img", img_handler))
-    app.add_handler(CommandHandler("video", video_handler))
-    app.add_handler(CommandHandler("comprar", buy_handler))
-    app.add_handler(CommandHandler("saldo", balance_handler))
     app.add_handler(CommandHandler("finance", financial_handler))
 
+    # Text messages (button flow - prompts / comandos)
+    app.add_handler(MessageHandler(filters.TEXT, handle_text_message))
+
+    # Photos (com ou sem legenda)
+    app.add_handler(MessageHandler(filters.PHOTO, handle_text_message))
+
     # Callbacks
+    app.add_handler(CallbackQueryHandler(accept_tos_callback, pattern="^accept_tos$"))
     app.add_handler(CallbackQueryHandler(menu_callback, pattern="^menu_"))
+    app.add_handler(CallbackQueryHandler(menu_callback, pattern="^vid_"))
     app.add_handler(CallbackQueryHandler(buy_callback, pattern="^buy_"))
     app.add_handler(CallbackQueryHandler(check_payment_callback, pattern="^check_"))
 

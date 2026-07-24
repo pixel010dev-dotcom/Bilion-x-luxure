@@ -70,19 +70,28 @@ async def buy_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if qr_b64:
             try:
                 qr_bytes = base64.b64decode(qr_b64)
+                pix_code = result.get("qr_code_text", "")
+                caption = (
+                    f"💰 *PIX gerado!*\n\n"
+                    f"📦 Plano: {plan_data['label']}\n"
+                    f"🪙 {coins} coins\n"
+                    f"💵 Valor: R${gross:.2f}\n\n"
+                )
+                if pix_code:
+                    caption += (
+                        f"📋 *Código PIX* (copia e cola):\n"
+                        f"`{pix_code}`\n\n"
+                    )
+                caption += (
+                    f"Escaneia o QR ou copia o código acima.\n"
+                    f"Clica em *'Paguei'* quando pagar.\n\n"
+                    f"⏱ Expira em 30 minutos."
+                )
                 await query.message.delete()
                 await context.bot.send_photo(
                     chat_id=user_id,
                     photo=qr_bytes,
-                    caption=(
-                        f"💰 *PIX gerado!*\n\n"
-                        f"📦 Plano: {plan_data['label']}\n"
-                        f"🪙 {coins} coins\n"
-                        f"💵 Valor: R${gross:.2f}\n\n"
-                        f"Escaneia o QR ou copia o código PIX.\n"
-                        f"Clica em *'Paguei'* quando pagar.\n\n"
-                        f"⏱ Expira em 30 minutos.",
-                    ),
+                    caption=caption,
                     reply_markup=reply_markup,
                     parse_mode="Markdown",
                 )
@@ -118,10 +127,16 @@ async def check_payment_callback(update: Update, context: ContextTypes.DEFAULT_T
         db_user = get_user(query.from_user.id)
         coins = db_user.get("coins", 0) if db_user else 0
 
-        await query.edit_message_text(
-            f"✅ *Pagamento confirmado!*\n\n"
-            f"🪙 Saldo: {coins} coins\n\n"
-            f"Pronto! Usa /img ou /video pra gerar conteúdo.",
+        await query.message.delete()
+        keyboard = [[InlineKeyboardButton("◀️ Voltar ao Menu", callback_data="menu_back")]]
+        await context.bot.send_message(
+            chat_id=query.from_user.id,
+            text=(
+                f"✅ *Pagamento confirmado!*\n\n"
+                f"🪙 Saldo: {coins} coins\n\n"
+                f"Pronto! Usa /img ou /video pra gerar conteúdo."
+            ),
+            reply_markup=InlineKeyboardMarkup(keyboard),
             parse_mode="Markdown",
         )
     elif status == "pending":
