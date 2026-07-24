@@ -1,4 +1,4 @@
-"""Image generation handler."""
+"""Image generation handler - custo 1 coin."""
 from telegram import Update
 from telegram.ext import ContextTypes
 from src.services.database import get_user, spend_coins, save_generation
@@ -14,7 +14,7 @@ async def img_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(
             f"❌ Saldo insuficiente!\n\n"
             f"🪙 Tu tens: {db_user.get('coins', 0) if db_user else 0} coins\n"
-            f"🪙 Necessário: {COST_PER_IMAGE} coins\n\n"
+            f"🪙 Necessário: {COST_PER_IMAGE} coin\n\n"
             f"Usa /comprar pra adicionar coins."
         )
         return
@@ -29,22 +29,22 @@ async def img_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
-    # Charge coins
+    # Debita coins
     if not spend_coins(user_id, COST_PER_IMAGE):
         await update.message.reply_text("❌ Erro ao debitar coins. Tenta novamente.")
         return
 
-    # Send "generating" message
+    # Mensagem de "gerando"
     msg = await update.message.reply_text("🎨 Gerando imagem... ⏳")
 
-    # Generate
+    # Gera
     result = generate_image(prompt)
 
     if result.get("success"):
         url = result["url"]
         save_generation(user_id, "image", prompt, COST_PER_IMAGE, url)
 
-        # Get updated balance
+        # Saldo atualizado
         db_user = get_user(user_id)
         coins = db_user.get("coins", 0)
 
@@ -58,7 +58,7 @@ async def img_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             ),
         )
     else:
-        # Refund coins on error
+        # Reembolsa
         from src.services.database import add_coins
         add_coins(user_id, COST_PER_IMAGE)
         await msg.edit_text(f"❌ Erro ao gerar imagem: {result.get('error', 'Desconhecido')}")

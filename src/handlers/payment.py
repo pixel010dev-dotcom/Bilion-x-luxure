@@ -1,10 +1,10 @@
-"""Payment handler - PIX via MercadoPago."""
+"""Payment handler - PIX via MercadoPago com tracking financeiro."""
 import asyncio
 import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import ContextTypes, CallbackQueryHandler
+from telegram.ext import ContextTypes
 from src.services.database import create_user, create_payment, update_payment_status, get_user
-from src.services.mercadopago_service import create_pix_payment, check_payment, PLANS
+from src.services.mercadopago_service import create_pix_payment, check_payment, PLANS, get_plan_cost_percentage
 
 logger = logging.getLogger(__name__)
 
@@ -14,20 +14,21 @@ async def buy_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     create_user(user_id, update.effective_user.username, update.effective_user.first_name)
 
     keyboard = [
-        [InlineKeyboardButton("⚡ Básico — R$15", callback_data="buy_basico")],
-        [InlineKeyboardButton("💎 Premium — R$30", callback_data="buy_premium")],
-        [InlineKeyboardButton("👑 Ultra — R$60", callback_data="buy_ultra")],
+        [InlineKeyboardButton("⚡ Básico — R$15 (150 coins)", callback_data="buy_basico")],
+        [InlineKeyboardButton("💎 Premium — R$30 (350 coins)", callback_data="buy_premium")],
+        [InlineKeyboardButton("👑 Ultra — R$60 (800 coins)", callback_data="buy_ultra")],
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
     await update.message.reply_text(
         "💰 *Escolha um Pack:*\n\n"
         "⚡ *Básico* — R$15\n"
-        "🪙 150 coins (75 imagens)\n\n"
+        "🪙 150 coins\n\n"
         "💎 *Premium* — R$30\n"
-        "🪙 300 coins + 💎 5 diamantes\n\n"
+        "🪙 350 coins\n\n"
         "👑 *Ultra* — R$60\n"
-        "🪙 700 coins + 💎 10 diamantes",
+        "🪙 800 coins\n\n"
+        "✅ Pagamento via PIX. Os coins caem na hora!",
         reply_markup=reply_markup,
         parse_mode="Markdown",
     )
@@ -52,16 +53,20 @@ async def buy_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if result.get("success"):
         import base64
         qr_b64 = result.get("qr_code", "")
+        gross = result["amount_gross"]
+        net = result["amount_net"]
+        coins = plan_data["coins"]
 
-        # Save payment to DB
-        create_payment(user_id, result["amount"], result["payment_id"], plan)
+        # Salva pagamento com tracking financeiro
+        create_payment(user_id, gross, net, result["payment_id"], plan, coins)
 
         keyboard = [
             [InlineKeyboardButton("✅ Paguei", callback_data=f"check_{result['payment_id']}")],
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
 
-        # Send QR code image
+        plan_cost_pct = get_plan_cost_percentage(plan)
+
         if qr_b64:
             try:
                 qr_bytes = base64.b64decode(qr_b64)
@@ -72,7 +77,8 @@ async def buy_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     caption=(
                         f"💰 *PIX gerado!*\n\n"
                         f"📦 Plano: {plan_data['label']}\n"
-                        f"💵 Valor: R${result['amount']:.2f}\n\n"
+                        f"🪙 {coins} coins\n"
+                        f"💵 Valor: R${gross:.2f}\n\n"
                         f"Escaneia o QR ou copia o código PIX.\n"
                         f"Clica em *'Paguei'* quando pagar.\n\n"
                         f"⏱ Expira em 30 minutos.",
@@ -84,11 +90,12 @@ async def buy_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             except Exception as e:
                 logger.error(f"QR send error: {e}")
 
-        # Fallback: send link
+        # Fallback: link
         await query.edit_message_text(
             f"💰 *PIX gerado!*\n\n"
             f"📦 Plano: {plan_data['label']}\n"
-            f"💵 Valor: R${result['amount']:.2f}\n\n"
+            f"🪙 {coins} coins\n"
+            f"💵 Valor: R${gross:.2f}\n\n"
             f"[Clique aqui pra ver o PIX]({result.get('qr_code_link', '')})\n\n"
             f"Clica em *'Paguei'* quando pagar.",
             reply_markup=reply_markup,
@@ -110,12 +117,10 @@ async def check_payment_callback(update: Update, context: ContextTypes.DEFAULT_T
         update_payment_status(payment_id, "approved")
         db_user = get_user(query.from_user.id)
         coins = db_user.get("coins", 0) if db_user else 0
-        diamonds = db_user.get("diamonds", 0) if db_user else 0
 
         await query.edit_message_text(
             f"✅ *Pagamento confirmado!*\n\n"
-            f"🪙 Coins: {coins}\n"
-            f"💎 Diamantes: {diamonds}\n\n"
+            f"🪙 Saldo: {coins} coins\n\n"
             f"Pronto! Usa /img ou /video pra gerar conteúdo.",
             parse_mode="Markdown",
         )

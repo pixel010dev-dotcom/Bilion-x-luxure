@@ -22,6 +22,7 @@ from src.handlers.img import img_handler
 from src.handlers.video import video_handler
 from src.handlers.payment import buy_handler, buy_callback, check_payment_callback
 from src.handlers.balance import balance_handler
+from src.handlers.finance import financial_handler
 
 
 def main():
@@ -35,12 +36,18 @@ def main():
 
     app = ApplicationBuilder().token(TOKEN).build()
 
+    # Registrar admin IDs no bot_data
+    admin_ids = os.environ.get("ADMIN_IDS", "")
+    if admin_ids:
+        app.bot_data["admin_ids"] = admin_ids
+
     # Commands
     app.add_handler(CommandHandler("start", start_handler))
     app.add_handler(CommandHandler("img", img_handler))
     app.add_handler(CommandHandler("video", video_handler))
     app.add_handler(CommandHandler("comprar", buy_handler))
     app.add_handler(CommandHandler("saldo", balance_handler))
+    app.add_handler(CommandHandler("finance", financial_handler))
 
     # Callbacks
     app.add_handler(CallbackQueryHandler(menu_callback, pattern="^menu_"))

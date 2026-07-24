@@ -4,6 +4,7 @@ from .img import img_handler
 from .video import video_handler
 from .payment import payment_handlers
 from .balance import balance_handler
+from .finance import financial_handler
 
 __all__ = [
     "start_handler",
@@ -11,4 +12,5 @@ __all__ = [
     "video_handler",
     "payment_handlers",
     "balance_handler",
+    "financial_handler",
 ]
